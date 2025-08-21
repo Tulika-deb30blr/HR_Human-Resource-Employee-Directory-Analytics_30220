@@ -1,0 +1,101 @@
+# backend_fin.py
+
+import psycopg2
+import os
+
+# --- Database Connection ---
+# It's recommended to use environment variables for database credentials in production.
+# For simplicity, we are using them directly here.
+DB_NAME = "Psycopg"
+DB_USER = "postgres"
+DB_PASSWORD = "Tulika30@xime"
+DB_HOST = "localhost"
+DB_PORT = "5432"
+
+def get_db_connection():
+    """Establishes and returns a connection to the PostgreSQL database."""
+    conn = psycopg2.connect(
+        dbname=DB_NAME,
+        user=DB_USER,
+        password=DB_PASSWORD,
+        host=DB_HOST,
+        port=DB_PORT
+    )
+    return conn
+
+# --- Data Fetching (Read Operations) ---
+
+def get_all_employees(sort_by='hire_date', department=None):
+    """
+    Fetches employee data, with optional sorting and filtering by department.
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    query = "SELECT employee_id, first_name, last_name, department, hire_date, salary FROM employees"
+    params = []
+
+    if department and department != 'All':
+        query += " WHERE department = %s"
+        params.append(department)
+
+    # Validate sort_by to prevent SQL injection
+    if sort_by not in ['salary', 'hire_date']:
+        sort_by = 'hire_date' # Default sort
+
+    query += f" ORDER BY {sort_by} DESC"
+
+    cursor.execute(query, tuple(params))
+    employees = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+    return employees
+
+def get_departments():
+    """Fetches a list of unique department names for the filter dropdown."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT DISTINCT department FROM employees ORDER BY department")
+    departments = [row[0] for row in cursor.fetchall()]
+    cursor.close()
+    conn.close()
+    return departments
+
+# --- Aggregation and Business Insights ---
+
+def get_employee_analytics():
+    """
+    Calculates and returns key business metrics about employees.
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # COUNT: Total number of employees
+    cursor.execute("SELECT COUNT(*) FROM employees")
+    total_employees = cursor.fetchone()[0]
+
+    # SUM: Total monthly salary expense
+    cursor.execute("SELECT SUM(salary) FROM employees")
+    total_salary = cursor.fetchone()[0] or 0
+
+    # AVG: Average salary
+    cursor.execute("SELECT AVG(salary) FROM employees")
+    average_salary = cursor.fetchone()[0] or 0
+
+    # MIN and MAX: Salary range
+    cursor.execute("SELECT MIN(salary), MAX(salary) FROM employees")
+    min_salary, max_salary = cursor.fetchone()
+    min_salary = min_salary or 0
+    max_salary = max_salary or 0
+
+    cursor.close()
+    conn.close()
+
+    return {
+        "total_employees": total_employees,
+        "total_salary_expense": total_salary,
+        "average_salary": average_salary,
+        "min_salary": min_salary,
+        "max_salary": max_salary
+    }
