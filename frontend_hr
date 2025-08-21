@@ -1,0 +1,97 @@
+# frontend_fin.py
+
+import streamlit as st
+import pandas as pd
+from backend_fin import (
+    get_all_employees,
+    get_departments,
+    get_employee_analytics
+)
+
+# --- Page Configuration ---
+st.set_page_config(
+    page_title="HR Employee Analytics",
+    page_icon="👥",
+    layout="wide"
+)
+
+st.title("👥 Human Resource: Employee Directory & Analytics")
+st.markdown("A simple dashboard to view employee data and gain quick insights.")
+st.markdown("Tulika Deb 30220")
+
+# --- Sidebar for Controls and Insights ---
+st.sidebar.header("Controls & Insights")
+
+# Filtering by Department
+departments = ['All'] + get_departments()
+selected_department = st.sidebar.selectbox(
+    "Filter by Department:",
+    options=departments
+)
+
+# Sorting
+sort_option = st.sidebar.selectbox(
+    "Sort by:",
+    options=['Hire Date', 'Salary'],
+    index=0 # Default to 'Hire Date'
+)
+sort_by_db = 'hire_date' if sort_option == 'Hire Date' else 'salary'
+
+
+# Business Insights Section
+st.sidebar.markdown("---")
+st.sidebar.subheader("Business Insights")
+
+try:
+    analytics = get_employee_analytics()
+
+    # Display metrics using st.metric
+    st.sidebar.metric(
+        label="Total Employees (COUNT)",
+        value=analytics["total_employees"]
+    )
+    st.sidebar.metric(
+        label="Total Monthly Salary Expense (SUM)",
+        value=f"${analytics['total_salary_expense']:,.2f}"
+    )
+    st.sidebar.metric(
+        label="Average Salary (AVG)",
+        value=f"${analytics['average_salary']:,.2f}"
+    )
+    st.sidebar.metric(
+        label="Lowest Salary (MIN)",
+        value=f"${analytics['min_salary']:,.2f}"
+    )
+    st.sidebar.metric(
+        label="Highest Salary (MAX)",
+        value=f"${analytics['max_salary']:,.2f}"
+    )
+
+except Exception as e:
+    st.sidebar.error(f"Failed to load analytics: {e}")
+
+
+# --- Main Content: Employee Directory ---
+st.markdown("---")
+st.header("Employee Directory")
+
+# Fetch and display employee data
+try:
+    employee_data = get_all_employees(sort_by=sort_by_db, department=selected_department)
+
+    if employee_data:
+        # Create a DataFrame for better display
+        df = pd.DataFrame(
+            employee_data,
+            columns=['ID', 'First Name', 'Last Name', 'Department', 'Hire Date', 'Salary']
+        )
+        
+        # Format the salary column to show as currency
+        df['Salary'] = df['Salary'].apply(lambda x: f"${x:,.2f}")
+
+        st.dataframe(df, use_container_width=True)
+    else:
+        st.warning("No employees found for the selected department.")
+
+except Exception as e:
+    st.error(f"An error occurred while fetching employee data: {e}")
